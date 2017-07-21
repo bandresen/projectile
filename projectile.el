@@ -383,7 +383,8 @@ containing a root file."
     ".tox"
     ".svn"
     ".stack-work")
-  "A list of directories globally ignored by projectile."
+  "A list of directories globally ignored by projectile.
+Relative ignore is done using \"*/ignore-dir\""
   :safe (lambda (x) (not (remq t (mapcar #'stringp x))))
   :group 'projectile
   :type '(repeat string))
@@ -1234,27 +1235,33 @@ function is executing."
   "First remove ignored files from FILES, then add back unignored files."
   (projectile-add-unignored (projectile-remove-ignored files)))
 
-(defun projectile-remove-ignored (files &optional subdirectories)
+(defun projectile-remove-ignored (files)
   "Remove ignored files and folders from FILES.
 
-Operates on filenames relative to the project root.  Optionally,
-you can filter ignored files in subdirectories by setting
-SUBDIRECTORIES to a non-nil value."
-  (let ((ignored (append (projectile-ignored-files-rel)
-                         (projectile-ignored-directories-rel))))
+Operates on filenames relative to the project root.
+Please see `projectile-globally-ignored-directories'."
+  (let ((ignored-files (projectile-ignored-files-rel))
+        (ignored-dirs (projectile-ignored-directories-rel)))
     (cl-remove-if
      (lambda (file)
        (or (cl-some
+            (lambda (f)
+              (string= f (file-name-nondirectory file)))
+            ignored-files)
+           (cl-some
             (lambda (dir)
-              (string-prefix-p
-               dir
-               (if subdirectories
-                   (file-name-nondirectory file)
-                 file)))
-            ignored)
+              (if (string-prefix-p "*/" dir)
+                  (let ((stripped-dir (substring dir 2 (if (string-suffix-p "/" dir) -1 nil)))
+                        (split-paths (delete "" (split-string (or (file-name-directory file) "") "/"))))
+                    (cl-some
+                     (lambda (path)
+                       (string= path stripped-dir))
+                     split-paths))
+                (string-prefix-p dir file)))
+            ignored-dirs)
            (cl-some
             (lambda (suf)
-              (string-suffix-p suf file))
+              (equal (compare-strings suf nil nil (file-name-extension file t) nil nil t) t))
             projectile-globally-ignored-file-suffixes)))
      files)))
 
@@ -1264,7 +1271,7 @@ SUBDIRECTORIES to a non-nil value."
     (cl-remove-if-not
      (lambda (file)
        (cl-some (lambda (f) (string-prefix-p f file)) files))
-     (projectile-get-repo-ignored-files))))
+     (projectile-get-repo-ignored-files (projectile-unignored-directories-rel)))))
 
 (defun projectile-add-unignored (files)
   "This adds unignored files to FILES.
@@ -1275,8 +1282,7 @@ this case unignored files will be absent from FILES."
                           (projectile-unignored-files-rel)))
         (unignored-paths (projectile-remove-ignored
                           (projectile-keep-ignored-files
-                           (projectile-unignored-directories-rel))
-                          'subdirectories)))
+                           (projectile-unignored-directories-rel)))))
     (append files unignored-files unignored-paths)))
 
 (defun projectile-buffers-with-file (buffers)

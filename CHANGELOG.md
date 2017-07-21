@@ -10,6 +10,7 @@
 
 ### Changes
 
+* [#1119](https://github.com/bbatsov/projectile/issues/1119) `projectile-globally-ignored-directories` now supports "*/dir" entries
 * [#1129](https://github.com/bbatsov/projectile/pull/1129): Fix TRAMP issues.
 * Add R DESCRIPTION file to `projectile-project-root-files`.
 * Ignore backup files in `projectile-get-other-files`.
